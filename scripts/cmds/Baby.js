@@ -161,7 +161,7 @@ module.exports.onChat = async ({
 }) => {
     try {
         const body = event.body ? event.body?.toLowerCase() : ""
-        if (body.startsWith("baby") || body.startsWith("bby") || body.startsWith("bot") || body.startsWith("jan") || body.startsWith("babu") || body.startsWith("janu")) {
+        if (body.startsWith("🤺baby") || body.startsWith("🤷‍♂️bby") || body.startsWith("🤺bot") || body.startsWith("Heli-lumo") || body.startsWith("🤺babu") || body.startsWith("🤺janu")) {
             const arr = body.replace(/^\S+\s*/, "")
             const randomReplies = ["Assalamualaikum 🌺💙", "Yes 😀, I am here", "What's up?", "Bolo jaan ki korte pari tumar jonno",  "হাসো তো প্লিজ 🌸, রাসেল মাহমুদ চাইছে তোমার মুখে আবার সেই সুন্দর হাসিটা দেখতে 🙂💙",
         "মন খারাপ করলে মনে রেখো, আমি সবসময় তোমার পাশে আছি 🤗",
