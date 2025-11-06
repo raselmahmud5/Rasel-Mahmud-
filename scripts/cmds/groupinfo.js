@@ -2,101 +2,84 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-module.exports.config = {
-  name: "groupinfo",
-  version: "1.0.0",
-  hasPermssion: 0,
-  credits: "Rasel Mahmud",
-  description: "Show group logo, name, admins and members (like the picture).",
-  commandCategory: "group",
-  usages: "",
-  cooldowns: 5,
-  dependencies: {}
-};
+module.exports = {
+  config: {
+    name: "groupinfo",
+    aliases: ["ginfo"],
+    version: "1.0",
+    author: "Rasel Mahmud",
+    countDown: 5,
+    role: 0,
+    shortDescription: "Show group info",
+    longDescription: "Shows group logo, name, admin list, and member count like the given picture.",
+    category: "group",
+  },
 
-module.exports.run = async function({ api, event, args }) {
-  const { threadID, messageID } = event;
-  try {
-    // ----- 1) get thread info -----
-    const threadInfo = await api.getThreadInfo(threadID);
-    const threadName = threadInfo.threadName || threadInfo.name || "Unnamed Group";
-    const imageSrc = threadInfo.imageSrc || threadInfo.threadImage || null;
+  onStart: async function({ api, event }) {
+    const { threadID, messageID } = event;
 
-    // ----- 2) admins and participants (frameworks differ slightly) -----
-    // threadInfo.adminIDs is commonly an array of objects like [{id: '1000...'}, ...]
-    const adminArray = threadInfo.adminIDs || threadInfo.admins || [];
-    const admins = adminArray.map(a => (typeof a === 'string') ? a : (a.id || a._id || a));
-    // participants may be in participantIDs or participants
-    let participants = [];
-    if (Array.isArray(threadInfo.participantIDs)) participants = threadInfo.participantIDs;
-    else if (Array.isArray(threadInfo.participants)) participants = threadInfo.participants.map(p => p.id || p);
-    else if (threadInfo.participantIDs && typeof threadInfo.participantIDs === 'object') participants = Object.keys(threadInfo.participantIDs);
+    try {
+      const threadInfo = await api.getThreadInfo(threadID);
+      const groupName = threadInfo.threadName || "Unnamed Group";
+      const groupImage = threadInfo.imageSrc || null;
+      const adminIDs = threadInfo.adminIDs || [];
+      const members = threadInfo.participantIDs || [];
+      const adminCount = adminIDs.length;
+      const memberCount = members.length;
 
-    const memberCount = participants.length || 0;
-
-    // ----- 3) fetch admin names (and build mention objects) -----
-    const mentions = []; // for sending mentions in message body
-    const adminNames = [];
-    for (let id of admins) {
-      try {
-        const info = await api.getUserInfo(id);
-        // api.getUserInfo usually returns object keyed by id
-        const name = (info && info[id] && info[id].name) ? info[id].name : Object.values(info)[0] && Object.values(info)[0].name ? Object.values(info)[0].name : id;
-        adminNames.push(name);
-      } catch (e) {
-        adminNames.push(id);
+      // ----- Fetch Admin Names -----
+      const adminNames = [];
+      for (const admin of adminIDs) {
+        try {
+          const info = await api.getUserInfo(admin.id || admin);
+          const name = info[admin.id || admin]?.name || "Unknown";
+          adminNames.push(name);
+        } catch {
+          adminNames.push("Unknown");
+        }
       }
-    }
 
-    // ----- 4) build a sample members list (first 40) and mentions -----
-    const sample = participants.slice(0, 40);
-    const sampleLines = [];
-    let i = 0;
-    for (let id of sample) {
-      try {
-        const info = await api.getUserInfo(id);
-        const name = (info && info[id] && info[id].name) ? info[id].name : Object.values(info)[0] && Object.values(info)[0].name ? Object.values(info)[0].name : id;
-        mentions.push({ id, tag: name });
-        sampleLines.push(`${i + 1}. ${name}`);
-      } catch (e) {
-        sampleLines.push(`${i + 1}. ${id}`);
+      // ----- Sample Members (up to 40) -----
+      const sample = members.slice(0, 40);
+      const memberNames = [];
+      let i = 1;
+      for (const id of sample) {
+        try {
+          const info = await api.getUserInfo(id);
+          const name = info[id]?.name || "Unknown";
+          memberNames.push(`${i}. ${name}`);
+        } catch {
+          memberNames.push(`${i}. Unknown`);
+        }
+        i++;
       }
-      i++;
-    }
 
-    // ----- 5) prepare message body -----
-    const body = 
-`👥 Group Name: ${threadName}
-🛡️ Admins (${admins.length}): ${adminNames.join(', ') || "No admin data"}
-👤 Members: ${memberCount}
+      // ----- Build message -----
+      const msg =
+`🌐 Group Name: ${groupName}
+🛡️ Admins (${adminCount}): ${adminNames.join(", ")}
+👥 Members: ${memberCount}
 
-📋 Sample members (${sample.length}):
-${sampleLines.join('\n')}
+📋 Sample Members (${sample.length}):
+${memberNames.join("\n")}
 `;
 
-    // ----- 6) optionally download group image and send as attachment -----
-    if (imageSrc) {
-      try {
-        const res = await axios.get(imageSrc, { responseType: 'arraybuffer' });
-        const ext = (res.headers['content-type'] || '').split('/')[1] || 'jpg';
-        const tmpPath = path.join(__dirname, `tmp_thread_${threadID}.${ext}`);
-        fs.writeFileSync(tmpPath, Buffer.from(res.data, 'binary'));
-        // send with attachment and mentions so names are highlighted
-        await api.sendMessage({ body, attachment: fs.createReadStream(tmpPath), mentions }, threadID, () => {
-          // cleanup
-          try { fs.unlinkSync(tmpPath); } catch(e) {}
-        }, messageID);
-      } catch (err) {
-        // failed to download image: send without attachment
-        await api.sendMessage({ body, mentions }, threadID, messageID);
-      }
-    } else {
-      // no group image: just send text + mentions
-      await api.sendMessage({ body, mentions }, threadID, messageID);
-    }
+      // ----- Send message -----
+      if (groupImage) {
+        const imgPath = path.join(__dirname, "groupinfo.jpg");
+        const imgData = (await axios.get(groupImage, { responseType: "arraybuffer" })).data;
+        fs.writeFileSync(imgPath, Buffer.from(imgData, "binary"));
 
-  } catch (error) {
-    console.error(error);
-    await api.sendMessage(`দুঃখিত — গ্রুপ ইনফো আনা যায়নি।\nError: ${error.message || error}`, threadID, messageID);
+        api.sendMessage({
+          body: msg,
+          attachment: fs.createReadStream(imgPath)
+        }, threadID, () => fs.unlinkSync(imgPath), messageID);
+      } else {
+        api.sendMessage(msg, threadID, messageID);
+      }
+
+    } catch (error) {
+      api.sendMessage(`❌ Error fetching group info:\n${error.message}`, threadID, messageID);
+    }
   }
 };
