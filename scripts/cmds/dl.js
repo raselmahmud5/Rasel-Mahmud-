@@ -109,8 +109,7 @@ const i = async (api, event, url) => {
       n = `${dl.title || "audio"}.mp3`;
       info = {
         type: "Audio",
-        title: dl.title,
-        duration: dl.duration,
+       	duration: dl.duration,
         artist: dl.artist || dl.author,
         plays: dl.plays || dl.views,
       };
@@ -165,7 +164,7 @@ const i = async (api, event, url) => {
       const size = s.size;
       let txt = `✅ Download Complete!\n\n📱 Platform: ${e(
         url
-      )}\n📄 Type: ${info.type}\n📝 Title: ${g(info.title, 50)}\n`;
+      )}\n📄 Type: ${info.type}`;
       if (info.duration) txt += `⏱️ Duration: ${info.duration}\n`;
       if (info.views) txt += `👀 Views: ${info.views}\n`;
       if (info.likes) txt += `❤️ Likes: ${info.likes}\n`;
